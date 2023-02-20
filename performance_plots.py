@@ -1,4 +1,4 @@
-## Plotting utils
+## Performance plotting utils
 #
 # functions used to plot (or prep for plotting)
 # animal training progress from protocol data dataframe
