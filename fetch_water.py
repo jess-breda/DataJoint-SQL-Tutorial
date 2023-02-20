@@ -11,6 +11,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+ratinfo = dj.create_virtual_module("intfo", "ratinfo")
+
 
 def fetch_daily_water_target(animal_id, date, verbose=False):
     """
@@ -128,11 +130,16 @@ def plot_daily_water(volume_target, rig_volume, pub_volume, animal_id, date):
 
     fig, ax = plt.subplots(1, 1, figsize=(3, 4))
 
+    # plot
     df.set_index("date").plot(kind="bar", stacked=True, color=["blue", "cyan"], ax=ax)
     ax.axhline(y=volume_target, xmin=0.2, xmax=0.8, color="black")
+
+    # legend
+    order = [1, 0]
+    handles, labels = plt.gca().get_legend_handles_labels()
+    plt.legend([handles[i] for i in order], [labels[i] for i in order], loc=(0.8, 0.75))
 
     # aesthetics
     _ = plt.xticks(rotation=45)
     _ = ax.set(xlabel="", ylabel="volume (mL)", title=f"{animal_id} water info")
     sns.despine()
-    _ = plt.legend(loc=(0.8, 0.75))
