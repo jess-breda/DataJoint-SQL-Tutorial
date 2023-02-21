@@ -110,6 +110,32 @@ def create_palette_given_sounds(df):
     return palette
 
 
+def set_poke_axis(poke):
+    """
+    Function to orient any plots with pokes
+    as left-center-right. assumes a horizontal
+    subplot with 3 options
+
+    inputs
+    -----
+    poke : str ('L', 'C', 'R')
+
+    returns
+    ------
+    iax : int (0,1,2)
+    """
+    if poke == "C":
+        iax = 1
+    elif poke == "L":
+        iax = 0
+    elif poke == "R":
+        iax = 2
+    else:
+        KeyError("poke type unknown")
+
+    return iax
+
+
 ############################
 ## === Plot Functions === ##
 ############################
