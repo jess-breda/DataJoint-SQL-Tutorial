@@ -8,8 +8,10 @@ from datajoint.errors import DataJointError
 ratinfo = dj.create_virtual_module("intfo", "ratinfo")
 bdata = dj.create_virtual_module("bdata", "bdata")
 
-# CHANGE THIS
+#############
+# CHANGE THESE DEFAULTS
 ANIMAL_IDS = ["R610", "R611", "R612"]
+#############
 
 
 def fetch_daily_summary_info(
@@ -25,17 +27,23 @@ def fetch_daily_summary_info(
     animals_daily_summary_df = []
 
     for animal_id in animal_ids:
-        subject_session_key = {"ratname": animal_id}
-        date_min_key = f"sessiondate >= '{date_min}'"
-        date_max_key = f"sessiondate <= '{date_max}'"
+        subject_key = {"ratname": animal_id}
+        sess_date_min_key = f"sessiondate >= '{date_min}'"
+        sess_date_max_key = f"sessiondate <= '{date_max}'"
+        mass_date_min_key = f"date >= '{date_min}'"
+        mass_date_max_key = f"date <= '{date_max}'"
 
         # get dates where there are entries to sessions table
         # TODO swtich this to get dates from mass tablw
-        dates = (
-            bdata.Sessions & subject_session_key & date_min_key & date_max_key
+        sess_dates = (
+            bdata.Sessions & subject_key & sess_date_min_key & sess_date_max_key
         ).fetch("sessiondate")
 
-        dates = np.unique(dates)  # drop repeats
+        mass_dates = (
+            ratinfo.Mass & subject_key & mass_date_min_key & mass_date_max_key
+        ).fetch("date")
+
+        dates = np.unique(np.concatenate((mass_dates, sess_dates)))  # drop repeats
 
         animals_daily_summary_df.append(
             create_animal_daily_summary_df(animal_id, dates)
@@ -103,23 +111,38 @@ def fetch_daily_session_info(animal_id, date):
     # create dict
     D = {}
 
-    D["animal_id"] = animal_id
-    D["date"] = date
-    D["rigid"] = rigid[-1]
-    D["n_done_trials"] = np.sum(n_done_trials)
-    D["n_sessions"] = len(n_done_trials)
+    # no session for this day, animal only weighed
+    if len(n_done_trials) == 0:
+        D["animal_id"] = animal_id
+        D["date"] = date
+        D["rigid"] = np.nan
+        D["n_done_trials"] = np.nan
+        D["n_sessions"] = 0
+        D["start_time"] = np.nan
+        D["train_dur_hrs"] = 0
+        D["trial_rate"] = np.nan
+        D["hit_rate"] = np.nan
+        D["viol_rate"] = np.nan
+        D["side_bias"] = np.nan
 
-    st = start_times.min()
-    D["start_time"] = datetime.datetime.strptime(str(st), "%H:%M:%S").time()
+    else:
+        D["animal_id"] = animal_id
+        D["date"] = date
+        D["rigid"] = rigid[-1]
+        D["n_done_trials"] = np.sum(n_done_trials)
+        D["n_sessions"] = len(n_done_trials)
 
-    D["train_dur_hrs"] = calculate_daily_train_dur(
-        start_times, end_times, units="hours"
-    )
-    D["trial_rate"] = np.round(D["n_done_trials"] / D["train_dur_hrs"], decimals=2)
+        st = start_times.min()
+        D["start_time"] = datetime.datetime.strptime(str(st), "%H:%M:%S").time()
 
-    D["hit_rate"], D["viol_rate"], D["side_bias"] = calculate_perf_metrics(
-        perf_metrics, n_done_trials
-    )
+        D["train_dur_hrs"] = calculate_daily_train_dur(
+            start_times, end_times, units="hours"
+        )
+        D["trial_rate"] = np.round(D["n_done_trials"] / D["train_dur_hrs"], decimals=2)
+
+        D["hit_rate"], D["viol_rate"], D["side_bias"] = calculate_perf_metrics(
+            perf_metrics, n_done_trials
+        )
 
     return pd.DataFrame(D, index=[0])
 
@@ -302,13 +325,13 @@ def fetch_daily_mass(animal_id, date):
         mass, tech = (ratinfo.Mass & Mass_keys).fetch1("mass", "tech")
     except DataJointError:
         print(
-            f"mass data not found for {animal_id} on {date},",
+            f"mass data not found for {animal_id} on {date}, but animal trained",
             f"using previous days mass",
         )
         prev_date = date - datetime.timedelta(days=1)
         Mass_keys = {"ratname": animal_id, "date": prev_date}
         mass = float((ratinfo.Mass & Mass_keys).fetch1("mass"))
-        tech = "NA"
+        tech = np.nan
     return float(mass), tech
 
 
@@ -378,7 +401,7 @@ def fetch_rig_volume(animal_id, date):
         rig_volume = float((ratinfo.Rigwater & Rig_keys).fetch1("totalvol"))
     except DataJointError:
         rig_volume = 0
-        print(f"rig volume wasn't tracked on {date}, defaulting to 0 mL")
+        print(f"rig volume was empty on {date}, defaulting to 0 mL")
 
     return rig_volume  # note this doesn't account for give water as of 5/18/2023
 
