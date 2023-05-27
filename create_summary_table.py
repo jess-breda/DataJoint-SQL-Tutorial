@@ -33,8 +33,7 @@ def fetch_daily_summary_info(
         mass_date_min_key = f"date >= '{date_min}'"
         mass_date_max_key = f"date <= '{date_max}'"
 
-        # get dates where there are entries to sessions table
-        # TODO swtich this to get dates from mass tablw
+        # get dates where there are entries to sessions or mass table
         sess_dates = (
             bdata.Sessions & subject_key & sess_date_min_key & sess_date_max_key
         ).fetch("sessiondate")
@@ -45,9 +44,12 @@ def fetch_daily_summary_info(
 
         dates = np.unique(np.concatenate((mass_dates, sess_dates)))  # drop repeats
 
+        # create df for given dates for an animal
         animals_daily_summary_df.append(
             create_animal_daily_summary_df(animal_id, dates)
         )
+
+    # concatenate over animals
     daily_summary_df = pd.concat(animals_daily_summary_df)
     return daily_summary_df
 
@@ -251,7 +253,7 @@ def fetch_daily_water_and_mass_info(animal_id, date):
     D["pub_volume"] = fetch_pub_volume(animal_id, date)
     D["rig_volume"] = fetch_rig_volume(animal_id, date)
     D["volume_target"] = fetch_daily_water_target(
-        D["mass"], D["percent_target"], verbose=False
+        D["mass"], D["percent_target"], D["date"], verbose=False
     )
     D["water_diff"] = (D["pub_volume"] + D["rig_volume"]) - D["volume_target"]
 
@@ -261,7 +263,7 @@ def fetch_daily_water_and_mass_info(animal_id, date):
 ###  SUB FUNCTIONS  ###
 
 
-def fetch_daily_water_target(mass, percent_target, verbose=False):
+def fetch_daily_water_target(mass, percent_target, date, verbose=False):
     """
     Function for getting an animals water volume target on
     a specific date
@@ -274,8 +276,8 @@ def fetch_daily_water_target(mass, percent_target, verbose=False):
     percent_target : float
         water restriction target in terms of percentage of body weight
         fetched from the Water table using fetch_daily_restriction_target()
-    verbose : bool
-        if you want to print restriction information
+    date : str or datetime
+        date queried in YYYY-MM-DD format, e.g. "2022-01-04"
 
     returns
     ------
@@ -285,19 +287,10 @@ def fetch_daily_water_target(mass, percent_target, verbose=False):
     # sometimes the pub isn't run- let's assume the minimum value
     if percent_target == 0:
         percent_target = 4 if mass < 100 else 3
-        note = "Note set to 0 but assumed 4."
-    else:
-        note = ""
+        if verbose:
+            print(f"Percent target was empty on {date}, defaulting to minimum.")
 
     volume_target = np.round((percent_target / 100) * mass, 2)
-
-    if verbose:
-        print(
-            f"""On {date} {animal_id} is restricted to:
-        {percent_target}% of body weight or {volume_target} mL
-        {note}
-        """
-        )
 
     return volume_target
 
