@@ -30,6 +30,7 @@ def fetch_daily_summary_info(
         date_max_key = f"sessiondate <= '{date_max}'"
 
         # get dates where there are entries to sessions table
+        # TODO swtich this to get dates from mass tablw
         dates = (
             bdata.Sessions & subject_session_key & date_min_key & date_max_key
         ).fetch("sessiondate")
@@ -82,9 +83,22 @@ def fetch_daily_session_info(animal_id, date):
         "sessiondate": date,
     }  # specific to Sessions table
 
-    n_done_trials, rigid, start_times, end_times = (
-        bdata.Sessions & query_keys & "n_done_trials > 1"
-    ).fetch("n_done_trials", "hostname", "starttime", "endtime")
+    (
+        n_done_trials,
+        rigid,
+        start_times,
+        end_times,
+        *perf_metrics,
+    ) = (bdata.Sessions & query_keys & "n_done_trials > 1").fetch(
+        "n_done_trials",
+        "hostname",
+        "starttime",
+        "endtime",
+        "total_correct",
+        "percent_violations",
+        "right_correct",
+        "left_correct",
+    )
 
     # create dict
     D = {}
@@ -102,6 +116,10 @@ def fetch_daily_session_info(animal_id, date):
         start_times, end_times, units="hours"
     )
     D["trial_rate"] = np.round(D["n_done_trials"] / D["train_dur_hrs"], decimals=2)
+
+    D["hit_rate"], D["viol_rate"], D["side_bias"] = calculate_perf_metrics(
+        perf_metrics, n_done_trials
+    )
 
     return pd.DataFrame(D, index=[0])
 
@@ -144,6 +162,38 @@ def calculate_daily_train_dur(start_times, end_times, units="hours"):
     daily_train_dur = daily_train_dur_seconds.total_seconds() / time_conversion
 
     return np.round(daily_train_dur, decimals=2)
+
+
+def calculate_perf_metrics(perf_metrics, n_done_trials):
+    """
+    Function to calculate weighted averages of Session
+    table performance metrics given the number of trials
+    from multiple session in the same day.
+
+    params
+    ------
+    perf_metrics: list
+        List of performance metrics from Sessions table to calculate
+        weighted average of.
+    n_done_trials: list
+        List of number of trials from Sessions table
+
+    returns
+    -------
+    hit_rate : float
+        Weighted average of hit rate
+    viol_rate : float
+        Weighted average of violation rate
+    side_bias : float
+        Weighted average of side bias (- = left, + = right)
+    """
+
+    # calculate weighted average of performance metrics
+    hit_rate = np.average(perf_metrics[0], weights=n_done_trials)
+    viol_rate = np.average(perf_metrics[1], weights=n_done_trials)
+    side_bias = np.average(perf_metrics[2] - perf_metrics[3], weights=n_done_trials)
+
+    return hit_rate, viol_rate, side_bias
 
 
 ########################
@@ -211,7 +261,7 @@ def fetch_daily_water_target(mass, percent_target, verbose=False):
     """
     # sometimes the pub isn't run- let's assume the minimum value
     if percent_target == 0:
-        percent_target = 4
+        percent_target = 4 if mass < 100 else 3
         note = "Note set to 0 but assumed 4."
     else:
         note = ""
