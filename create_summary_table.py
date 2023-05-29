@@ -14,7 +14,7 @@ ANIMAL_IDS = ["R610", "R611", "R612"]
 #############
 
 
-def fetch_daily_summary_info(
+def create_daily_summary_from_dj(
     animal_ids=None, date_min="2000-01-01", date_max="2030-01-01", verbose=False
 ):
     """
@@ -27,6 +27,7 @@ def fetch_daily_summary_info(
     animals_daily_summary_df = []
 
     for animal_id in animal_ids:
+        # TODO function for fetching valid dates
         subject_key = {"ratname": animal_id}
         sess_date_min_key = f"sessiondate >= '{date_min}'"
         sess_date_max_key = f"sessiondate <= '{date_max}'"
@@ -44,7 +45,7 @@ def fetch_daily_summary_info(
 
         dates = np.unique(np.concatenate((mass_dates, sess_dates)))  # drop repeats
 
-        # create df for given dates for an animal
+        # create df for given dates for an animal via dj fetch & formatting
         animals_daily_summary_df.append(
             create_animal_daily_summary_df(animal_id, dates)
         )
@@ -251,7 +252,7 @@ def fetch_daily_water_and_mass_info(animal_id, date):
     D["mass"], D["tech"] = fetch_daily_mass(animal_id, date)
     D["percent_target"] = fetch_daily_restriction_target(animal_id, date)
     D["pub_volume"] = fetch_pub_volume(animal_id, date)
-    D["rig_volume"] = fetch_rig_volume(animal_id, date)
+    D["rig_volume"] = fetch_rig_volume(animal_id, date, verbose=False)
     D["volume_target"] = fetch_daily_water_target(
         D["mass"], D["percent_target"], D["date"], verbose=False
     )
@@ -372,7 +373,7 @@ def fetch_daily_restriction_target(animal_id, date):
     return float(percent_target)
 
 
-def fetch_rig_volume(animal_id, date):
+def fetch_rig_volume(animal_id, date, verbose=False):
     """ "
     Fetch rig volume from RigWater table
 
@@ -394,7 +395,8 @@ def fetch_rig_volume(animal_id, date):
         rig_volume = float((ratinfo.Rigwater & Rig_keys).fetch1("totalvol"))
     except DataJointError:
         rig_volume = 0
-        print(f"rig volume was empty on {date}, defaulting to 0 mL")
+        if verbose:
+            print(f"rig volume was empty on {date}, defaulting to 0 mL")
 
     return rig_volume  # note this doesn't account for give water as of 5/18/2023
 
