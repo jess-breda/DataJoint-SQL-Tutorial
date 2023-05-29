@@ -47,7 +47,7 @@ def create_daily_summary_from_dj(
 
         # create df for given dates for an animal via dj fetch & formatting
         animals_daily_summary_df.append(
-            create_animal_daily_summary_df(animal_id, dates)
+            create_animal_daily_summary_df(animal_id, dates, verbose=verbose)
         )
 
     # concatenate over animals
@@ -55,7 +55,7 @@ def create_daily_summary_from_dj(
     return daily_summary_df
 
 
-def create_animal_daily_summary_df(animal_id, dates):
+def create_animal_daily_summary_df(animal_id, dates, verbose=False):
     """
     TODO
     """
@@ -64,16 +64,18 @@ def create_animal_daily_summary_df(animal_id, dates):
 
     for date in dates:
         session_dfs.append(fetch_daily_session_info(animal_id, date))
-        water_mass_dfs.append(fetch_daily_water_and_mass_info(animal_id, date))
+        water_mass_dfs.append(
+            fetch_daily_water_and_mass_info(animal_id, date, verbose=verbose)
+        )
     daily_summary_df = pd.merge(
         pd.concat(session_dfs, ignore_index=True),
         pd.concat(water_mass_dfs, ignore_index=True),
         on=["animal_id", "date"],
     )
-
-    print(
-        f"fetched {len(dates)} daily summaries for {animal_id} between {min(dates)} and {max(dates)}"
-    )
+    if verbose:
+        print(
+            f"fetched {len(dates)} daily summaries for {animal_id} between {min(dates)} and {max(dates)}"
+        )
 
     return daily_summary_df
 
@@ -227,7 +229,7 @@ def calculate_perf_metrics(perf_metrics, n_done_trials):
 ########################
 
 
-def fetch_daily_water_and_mass_info(animal_id, date):
+def fetch_daily_water_and_mass_info(animal_id, date, verbose=False):
     """ "
     Wrapper function to generate a df row containing mass,
     water and restriction data for a given animal, date
@@ -252,9 +254,9 @@ def fetch_daily_water_and_mass_info(animal_id, date):
     D["mass"], D["tech"] = fetch_daily_mass(animal_id, date)
     D["percent_target"] = fetch_daily_restriction_target(animal_id, date)
     D["pub_volume"] = fetch_pub_volume(animal_id, date)
-    D["rig_volume"] = fetch_rig_volume(animal_id, date, verbose=False)
+    D["rig_volume"] = fetch_rig_volume(animal_id, date, verbose=verbose)
     D["volume_target"] = fetch_daily_water_target(
-        D["mass"], D["percent_target"], D["date"], verbose=False
+        D["mass"], D["percent_target"], D["date"], verbose=verbose
     )
     D["water_diff"] = (D["pub_volume"] + D["rig_volume"]) - D["volume_target"]
 
