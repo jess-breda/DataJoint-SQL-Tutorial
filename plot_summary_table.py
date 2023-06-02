@@ -103,9 +103,8 @@ def plot_water_restriction(df, ax, title="", legend=True, xaxis_label=True):
     )
 
     # iterate over dates to plot volume target black line
-    for i in range(len(df)):
-        ax.hlines(y=df.volume_target[i], xmin=i - 0.5, xmax=i + 0.5, color="black")
-
+    for i, row in df.reset_index().iterrows():
+        ax.hlines(y=row["volume_target"], xmin=i - 0.35, xmax=i + 0.35, color="black")
     # aesthetics
     set_date_x_ticks(ax, xaxis_label)
     set_legend(ax, legend)
