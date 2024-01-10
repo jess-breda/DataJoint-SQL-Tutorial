@@ -16,8 +16,7 @@ git clone https://github.com/jess-breda/DataJoint-SQL-Tutorial.git
 3. Activate environment created in step 1 & install additional seaborn library
 ```
 conda activate <env name>
-pip install seaborn
-pip install pyarrow
+pip install seaborn pyarrow openpyxl
 ```
 
 4. Use your preferred IDE to work through the notebooks.
